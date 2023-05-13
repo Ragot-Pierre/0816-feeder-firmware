@@ -6,3 +6,12 @@ This is the firmware needed to use the 0816 smt feeder. Find details on the feed
 
 [Watch a video showing the smt feeder in action](https://www.youtube.com/watch?v=vJzb3llKgjA)
 
+## Modification:
+
+### New commands:
+
+#### M621:
+Same as [M620](https://docs.mgrl.de/maschine:pickandplace:feeder:0816feeder:mcodes#m620set_feeder_config), without N parameter to modify all feeders in one command.
+
+#### M630:
+Get all feeders configuration (without N parameter) or one feeder configuration (with valid N parameter).
