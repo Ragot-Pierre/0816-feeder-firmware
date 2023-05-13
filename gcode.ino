@@ -226,37 +226,47 @@ void processCommand() {
 			break;
 		}
 
-		case MCODE_UPDATE_FEEDER_CONFIG: {
-			int8_t signedFeederNo = (int)parseParameter('N',-1);
+		case MCODE_UPDATE_FEEDER_CONFIG:
+		case MCODE_UPDATE_ALL_FEEDER_CONFIG: {
+			uint8_t feederStart = 0;
+			uint8_t feederEnd = NUMBER_OF_FEEDER-1;
+			if (cmd == MCODE_UPDATE_FEEDER_CONFIG) {
+				int8_t signedFeederNo = (int)parseParameter('N',-1);
 
-			//check for presence of FeederNo
-			if(!validFeederNo(signedFeederNo,1)) {
-				sendAnswer(1,F("feederNo missing or invalid"));
-				break;
+				//check for presence of FeederNo
+				if(!validFeederNo(signedFeederNo,1)) {
+					sendAnswer(1,F("feederNo missing or invalid"));
+					break;
+				}
+				feederStart = signedFeederNo;
+				feederEnd = signedFeederNo;
 			}
 
-			//merge given parameters to old settings
-			FeederClass::sFeederSettings oldFeederSettings=feeders[(uint8_t)signedFeederNo].getSettings();
-			FeederClass::sFeederSettings updatedFeederSettings;
-			updatedFeederSettings.full_advanced_angle=parseParameter('A',oldFeederSettings.full_advanced_angle);
-			updatedFeederSettings.half_advanced_angle=parseParameter('B',oldFeederSettings.half_advanced_angle);
-			updatedFeederSettings.retract_angle=parseParameter('C',oldFeederSettings.retract_angle);
-			updatedFeederSettings.feed_length=parseParameter('F',oldFeederSettings.feed_length);
-			updatedFeederSettings.time_to_settle=parseParameter('U',oldFeederSettings.time_to_settle);
-			updatedFeederSettings.motor_min_pulsewidth=parseParameter('V',oldFeederSettings.motor_min_pulsewidth);
-			updatedFeederSettings.motor_max_pulsewidth=parseParameter('W',oldFeederSettings.motor_max_pulsewidth);
+			for (uint8_t i=feederStart;i<=feederEnd;i++) {
+
+				//merge given parameters to old settings
+				FeederClass::sFeederSettings oldFeederSettings=feeders[i].getSettings();
+				FeederClass::sFeederSettings updatedFeederSettings;
+				updatedFeederSettings.full_advanced_angle=parseParameter('A',oldFeederSettings.full_advanced_angle);
+				updatedFeederSettings.half_advanced_angle=parseParameter('B',oldFeederSettings.half_advanced_angle);
+				updatedFeederSettings.retract_angle=parseParameter('C',oldFeederSettings.retract_angle);
+				updatedFeederSettings.feed_length=parseParameter('F',oldFeederSettings.feed_length);
+				updatedFeederSettings.time_to_settle=parseParameter('U',oldFeederSettings.time_to_settle);
+				updatedFeederSettings.motor_min_pulsewidth=parseParameter('V',oldFeederSettings.motor_min_pulsewidth);
+				updatedFeederSettings.motor_max_pulsewidth=parseParameter('W',oldFeederSettings.motor_max_pulsewidth);
 #ifdef HAS_FEEDBACKLINES
-			updatedFeederSettings.ignore_feedback=parseParameter('X',oldFeederSettings.ignore_feedback);
+				updatedFeederSettings.ignore_feedback=parseParameter('X',oldFeederSettings.ignore_feedback);
 #endif
 			
-			//set to feeder
-			feeders[(uint8_t)signedFeederNo].setSettings(updatedFeederSettings);
+				//set to feeder
+				feeders[i].setSettings(updatedFeederSettings);
 
-			//save to eeprom
-			feeders[(uint8_t)signedFeederNo].saveFeederSettings();
+				//save to eeprom
+				feeders[i].saveFeederSettings();
 
-			//reattach servo with new settings
-			feeders[(uint8_t)signedFeederNo].setup();
+				//reattach servo with new settings
+				feeders[i].setup();
+			}
 
 			//confirm
 			sendAnswer(0,F("Feeders config updated."));
