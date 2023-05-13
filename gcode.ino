@@ -264,6 +264,21 @@ void processCommand() {
 			break;
 		}
 
+		case MCODE_PRINT_FEEDER_CONFIG: {
+			int8_t signedFeederNo = (int)parseParameter('N', -1);
+
+			if (signedFeederNo == -1) {
+				for (uint8_t i=0;i<NUMBER_OF_FEEDER;i++) {
+					feeders[i].outputCurrentSettings();
+				}
+			} else if (validFeederNo(signedFeederNo, 1)) {
+				feeders[(uint8_t)signedFeederNo].outputCurrentSettings();
+			} else {
+				sendAnswer(1, F("feederNo invalid"));
+			}
+			break;
+		}
+
 		/*
 		CODES to Control ADC
 		*/
