@@ -1,11 +1,11 @@
 /*
-* Author: mgrl
-* (c)2017-12-30
+* Author: mgrl, Dabi
+* (c)2023-05-14
 *
 * This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 * http://creativecommons.org/licenses/by-nc-sa/4.0/
 *
-* current version: v0.3
+* current version: v0.4
 *
 * CHANGELOG:
 * v0.2
@@ -14,6 +14,10 @@
 *   - better checking for manual feed (enhanced reliability not to conflict with g-code issued feeds)
 *   - improved setup sequence
 *   - default angle for 2mm feeds corrected according to math
+* v0.4
+*   - New commands: M604, M621, M622, M630
+*   - Speed control for advance and retract (for real position tracking)
+*   - Unload mode if "0816 Feeder Redesigned" used
 *
 */
 

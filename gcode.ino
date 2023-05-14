@@ -24,6 +24,20 @@ float parseParameter(char code,float defaultVal) {
 
 }
 
+uint16_t parseSpeedParameter(char code,uint16_t oldValue) {
+	float newValue = parseParameter(code, -1);
+	if (newValue<0)
+		return oldValue;
+	if (newValue==0)
+		return 0;
+	if (newValue>=256)
+		return 65535;
+	uint16_t newParam = round(newValue*256);
+	if (newParam<1)
+		return 1;
+	return newParam;
+}
+
 void setupGCodeProc() {
 	inputBuffer.reserve(MAX_BUFFFER_MCODE_LINE);
 }
@@ -37,20 +51,28 @@ void sendAnswer(uint8_t error, String message) {
 	Serial.println(message);
 }
 
-bool validFeederNo(int8_t signedFeederNo, uint8_t feederNoMandatory = 0) {
-	if(signedFeederNo == -1 && feederNoMandatory >= 1) {
-		//no number given (-1) but it is mandatory.
+bool validFeederNo(int8_t signedFeederNo) {
+	if(signedFeederNo<0 || signedFeederNo>(NUMBER_OF_FEEDER-1)) {
+		//error, number not in a valid range
 		return false;
-		} else {
-		//state now: number is given, check for valid range
-		if(signedFeederNo<0 || signedFeederNo>(NUMBER_OF_FEEDER-1)) {
-			//error, number not in a valid range
-			return false;
-			} else {
-			//perfectly fine number
-			return true;
-		}
 	}
+	//perfectly fine number
+	return true;
+}
+
+bool validFeederNoError(int8_t signedFeederNo) {
+	bool ret = !validFeederNo(signedFeederNo);
+	if (ret)
+		sendAnswer(1,F("feederNo missing or invalid"));
+	return ret;
+}
+
+bool checkEnabledFeedersError() {
+	if(feederEnabled!=ENABLED) {
+		sendAnswer(1,String(String("Enable feeder first! M") + String(MCODE_SET_FEEDER_ENABLE) + String(" S1")));
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -107,8 +129,7 @@ void processCommand() {
 
 		case MCODE_ADVANCE: {
 			//1st to check: are feeder enabled?
-			if(feederEnabled!=ENABLED) {
-				sendAnswer(1,String(String("Enable feeder first! M") + String(MCODE_SET_FEEDER_ENABLE) + String(" S1")));
+			if(checkEnabledFeedersError()) {
 				break;
 			}
 
@@ -123,8 +144,7 @@ void processCommand() {
 			}
 
 			//check for presence of a mandatory FeederNo
-			if(!validFeederNo(signedFeederNo,1)) {
-				sendAnswer(1,F("feederNo missing or invalid"));
+			if(validFeederNoError(signedFeederNo)) {
 				break;
 			}
 
@@ -162,17 +182,15 @@ void processCommand() {
 
 		case MCODE_RETRACT_POST_PICK: {
 			//1st to check: are feeder enabled?
-			if(feederEnabled!=ENABLED) {
-				sendAnswer(1,String(String("Enable feeder first! M") + String(MCODE_SET_FEEDER_ENABLE) + String(" S1")));
+			if(checkEnabledFeedersError()) {
 				break;
 			}
 
 
 			int8_t signedFeederNo = (int)parseParameter('N',-1);
 
-			//check for presence of FeederNo
-			if(!validFeederNo(signedFeederNo,1)) {
-				sendAnswer(1,F("feederNo missing or invalid"));
+			//check for presence of a mandatory FeederNo
+			if(validFeederNoError(signedFeederNo)) {
 				break;
 			}
 
@@ -186,9 +204,8 @@ void processCommand() {
 		case MCODE_FEEDER_IS_OK: {
 			int8_t signedFeederNo = (int)parseParameter('N',-1);
 
-			//check for presence of FeederNo
-			if(!validFeederNo(signedFeederNo,1)) {
-				sendAnswer(1,F("feederNo missing or invalid"));
+			//check for presence of a mandatory FeederNo
+			if(validFeederNoError(signedFeederNo)) {
 				break;
 			}
 
@@ -199,8 +216,7 @@ void processCommand() {
 
 		case MCODE_SERVO_SET_ANGLE: {
 			//1st to check: are feeder enabled?
-			if(feederEnabled!=ENABLED) {
-				sendAnswer(1,String(String("Enable feeder first! M") + String(MCODE_SET_FEEDER_ENABLE) + String(" S1")));
+			if(checkEnabledFeedersError()) {
 				break;
 			}
 
@@ -208,9 +224,8 @@ void processCommand() {
 			int8_t signedFeederNo = (int)parseParameter('N',-1);
 			uint8_t angle = (int)parseParameter('A',90);
 
-			//check for presence of FeederNo
-			if(!validFeederNo(signedFeederNo,1)) {
-				sendAnswer(1,F("feederNo missing or invalid"));
+			//check for presence of a mandatory FeederNo
+			if(validFeederNoError(signedFeederNo)) {
 				break;
 			}
 			//check for valid angle
@@ -226,6 +241,27 @@ void processCommand() {
 			break;
 		}
 
+		case MCODE_UNLOAD: {
+			//1st to check: are feeder enabled?
+			if(checkEnabledFeedersError()) {
+				break;
+			}
+
+
+			int8_t signedFeederNo = (int)parseParameter('N',-1);
+
+			//check for presence of a mandatory FeederNo
+			if(validFeederNoError(signedFeederNo)) {
+				break;
+			}
+
+			feeders[(uint8_t)signedFeederNo].gotoUnloadPosition();
+
+			sendAnswer(0,F("feeder unload started if needed"));
+
+			break;
+		}
+
 		case MCODE_UPDATE_FEEDER_CONFIG:
 		case MCODE_UPDATE_ALL_FEEDER_CONFIG: {
 			uint8_t feederStart = 0;
@@ -233,9 +269,8 @@ void processCommand() {
 			if (cmd == MCODE_UPDATE_FEEDER_CONFIG) {
 				int8_t signedFeederNo = (int)parseParameter('N',-1);
 
-				//check for presence of FeederNo
-				if(!validFeederNo(signedFeederNo,1)) {
-					sendAnswer(1,F("feederNo missing or invalid"));
+				//check for presence of a mandatory FeederNo
+				if(validFeederNoError(signedFeederNo)) {
 					break;
 				}
 				feederStart = signedFeederNo;
@@ -251,6 +286,8 @@ void processCommand() {
 				updatedFeederSettings.half_advanced_angle=parseParameter('B',oldFeederSettings.half_advanced_angle);
 				updatedFeederSettings.retract_angle=parseParameter('C',oldFeederSettings.retract_angle);
 				updatedFeederSettings.feed_length=parseParameter('F',oldFeederSettings.feed_length);
+				updatedFeederSettings.advance_angle_speed=parseSpeedParameter('S',oldFeederSettings.advance_angle_speed);
+				updatedFeederSettings.retract_angle_speed=parseSpeedParameter('R',oldFeederSettings.retract_angle_speed);
 				updatedFeederSettings.time_to_settle=parseParameter('U',oldFeederSettings.time_to_settle);
 				updatedFeederSettings.motor_min_pulsewidth=parseParameter('V',oldFeederSettings.motor_min_pulsewidth);
 				updatedFeederSettings.motor_max_pulsewidth=parseParameter('W',oldFeederSettings.motor_max_pulsewidth);
@@ -274,6 +311,29 @@ void processCommand() {
 			break;
 		}
 
+		case MCODE_UPDATE_ALL_FEEDERS_RD: {
+			for (uint8_t i=0;i<=NUMBER_OF_FEEDER-1;i++) {
+				//merge given parameters to old settings
+				FeederClass::sFeederSettings settings=feeders[i].getSettings();
+				settings.full_advanced_angle=FEEDER_DEFAULT_RD_FULL_ADVANCED_ANGLE;
+				settings.half_advanced_angle=FEEDER_DEFAULT_RD_HALF_ADVANCED_ANGLE;
+				settings.retract_angle=FEEDER_DEFAULT_RD_RETRACT_ANGLE;
+
+				//set to feeder
+				feeders[i].setSettings(settings);
+
+				//save to eeprom
+				feeders[i].saveFeederSettings();
+
+				//reattach servo with new settings
+				feeders[i].setup();
+			}
+			//confirm
+			sendAnswer(0,F("Feeders config updated."));
+
+			break;
+		}
+
 		case MCODE_PRINT_FEEDER_CONFIG: {
 			int8_t signedFeederNo = (int)parseParameter('N', -1);
 
@@ -281,7 +341,7 @@ void processCommand() {
 				for (uint8_t i=0;i<NUMBER_OF_FEEDER;i++) {
 					feeders[i].outputCurrentSettings();
 				}
-			} else if (validFeederNo(signedFeederNo, 1)) {
+			} else if (validFeederNo(signedFeederNo)) {
 				feeders[(uint8_t)signedFeederNo].outputCurrentSettings();
 			} else {
 				sendAnswer(1, F("feederNo invalid"));

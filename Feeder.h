@@ -34,6 +34,8 @@ class FeederClass {
 		uint8_t retract_angle;
 		uint8_t feed_length;
 		int time_to_settle;
+		uint16_t advance_angle_speed;					// degree per ms in 1/256 degree resolution, 0 disable
+		uint16_t retract_angle_speed;					// degree per ms in 1/256 degree resolution, 0 disable
 		int motor_min_pulsewidth;
 		int motor_max_pulsewidth;
 #ifdef HAS_FEEDBACKLINES  
@@ -48,8 +50,8 @@ class FeederClass {
 	enum sFeederState {
 		sDISABLED,
 		sIDLE,
+		sSETTLE,
 		sMOVING,
-		sADVANCING_CYCLE_COMPLETED,
 	} feederState = sDISABLED;
 
 	//store the position of the advancing lever
@@ -59,11 +61,14 @@ class FeederClass {
 		sAT_FULL_ADVANCED_POSITION,
 		sAT_HALF_ADVANCED_POSITION,
 		sAT_RETRACT_POSITION,
-
-	} lastFeederPosition = sAT_UNKNOWN, feederPosition = sAT_UNKNOWN;
+		sAT_UNLOAD_POSITION,
+	} feederPosition = sAT_UNKNOWN;
 
 	//store last tinestamp position changed to respect a settle time
 	unsigned long lastTimePositionChange;
+	uint16_t position = FEEDER_DEFAULT_FULL_ADVANCED_ANGLE * 256;			// 1/256 degree
+	uint16_t targetPosition = 0;											// 1/256 degree
+	bool advanceInProgress = false;
 	
 	//some variables for utilizing the feedbackline to feed for setup the feeder...
 	uint8_t feedbackLineTickCounter=0;
@@ -77,6 +82,8 @@ class FeederClass {
 		FEEDER_DEFAULT_RETRACT_ANGLE,
 		FEEDER_DEFAULT_FEED_LENGTH,
 		FEEDER_DEFAULT_TIME_TO_SETTLE,
+		FEEDER_DEFAULT_ADVANCE_ANGLE_SPEED,
+		FEEDER_DEFAULT_RETRACT_ANGLE_SPEED,
 		FEEDER_DEFAULT_MOTOR_MIN_PULSEWIDTH,
 		FEEDER_DEFAULT_MOTOR_MAX_PULSEWITH,
 #ifdef HAS_FEEDBACKLINES
@@ -101,8 +108,12 @@ class FeederClass {
 	void gotoRetractPosition();
 	void gotoHalfAdvancedPosition();
 	void gotoFullAdvancedPosition();
+	void gotoUnloadPosition();
 	void gotoAngle(uint8_t angle);
 	bool advance(uint8_t feedLength, bool overrideError);
+	void advanceNext();
+	void startMove(uint8_t angle, sFeederPosition pos);
+	bool moveServoToTarget(uint8_t ms);
 
 	String reportFeederErrorState();
 	bool feederIsOk();

@@ -22,7 +22,7 @@
 *  EEPROM-Settings
 */
 //change to something other unique if structure of data to be saved in eeprom changed (max 3 chars)
-#define CONFIG_VERSION "aab"
+#define CONFIG_VERSION "dab"
 
 /*
 *  Serial
@@ -107,6 +107,12 @@
 #define FEEDER_DEFAULT_RETRACT_ANGLE  15				      // [°]  usually 20, chose 15 to be failsafe (type: uint8_t)
 #define FEEDER_DEFAULT_FEED_LENGTH FEEDER_MECHANICAL_ADVANCE_LENGTH			// [mm] distance to be fed if no feedlength was given in a feed command
 #define FEEDER_DEFAULT_TIME_TO_SETTLE  240			  // [ms] time the servo needs to travel from FEEDER_DEFAULT_FULL_ADVANCED_ANGLE to FEEDER_DEFAULT_RETRACT_ANGLE (type: uint8_t -> max 255ms)
+#define FEEDER_DEFAULT_ADVANCE_ANGLE_SPEED 0		// max speed
+#define FEEDER_DEFAULT_RETRACT_ANGLE_SPEED 0		// max speed
+/* Added 40 degrees for all angles for "0816 Feeder Redesigned */
+#define FEEDER_DEFAULT_RD_FULL_ADVANCED_ANGLE  130		// [°]  usually 130 (type: uint8_t)
+#define FEEDER_DEFAULT_RD_HALF_ADVANCED_ANGLE  84		// [°]  exact math would be 83.85. may need tweaking. only needed if advancing half pitch (for 0401 smds) (type: uint8_t)
+#define FEEDER_DEFAULT_RD_RETRACT_ANGLE  45				// [°]  usually 20, chose 15 to be failsafe (type: uint8_t)
 /*
 	 0° == ~ 544 µs	--> min, default 544 and seems it fits to the sg90 from tower pro
 	90° ==          --> "middle"
@@ -195,9 +201,11 @@
 #define MCODE_RETRACT_POST_PICK 601
 #define MCODE_FEEDER_IS_OK 602
 #define MCODE_SERVO_SET_ANGLE 603
+#define MCODE_UNLOAD 604
 #define MCODE_SET_FEEDER_ENABLE 610
 #define MCODE_UPDATE_FEEDER_CONFIG	620
 #define MCODE_UPDATE_ALL_FEEDER_CONFIG	621
+#define MCODE_UPDATE_ALL_FEEDERS_RD  622
 #define MCODE_PRINT_FEEDER_CONFIG  630
 
 #define MCODE_GET_ADC_RAW 143

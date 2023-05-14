@@ -35,6 +35,10 @@ void FeederClass::outputCurrentSettings() {
 	Serial.print(this->feederSettings.retract_angle);
 	Serial.print(" F");
 	Serial.print(this->feederSettings.feed_length);
+	Serial.print(" S");
+	Serial.print((float)this->feederSettings.advance_angle_speed/256, 3);
+	Serial.print(" R");
+	Serial.print((float)this->feederSettings.retract_angle_speed/256, 3);
 	Serial.print(" U");
 	Serial.print(this->feederSettings.time_to_settle);
 	Serial.print(" V");
@@ -111,7 +115,8 @@ void FeederClass::factoryReset() {
 
 
 void FeederClass::gotoPostPickPosition() {
-  if(this->feederPosition==sAT_FULL_ADVANCED_POSITION) {
+  if ((this->feederPosition==sAT_FULL_ADVANCED_POSITION) || 
+  	  (this->feederPosition==sAT_UNLOAD_POSITION)) {
     this->gotoRetractPosition();
     #ifdef DEBUG
       Serial.println("gotoPostPickPosition retracted feeder");
@@ -125,35 +130,37 @@ void FeederClass::gotoPostPickPosition() {
 }
 
 void FeederClass::gotoRetractPosition() {
-	this->servo.write(this->feederSettings.retract_angle);
-	this->feederPosition=sAT_RETRACT_POSITION;
-	this->feederState=sMOVING;
+	this->startMove(this->feederSettings.retract_angle,sAT_RETRACT_POSITION);
 	#ifdef DEBUG
 		Serial.println("going to retract now");
 	#endif
 }
 
 void FeederClass::gotoHalfAdvancedPosition() {
-	this->servo.write(this->feederSettings.half_advanced_angle);
-	this->feederPosition=sAT_HALF_ADVANCED_POSITION;
-	this->feederState=sMOVING;
+	this->startMove(this->feederSettings.half_advanced_angle,sAT_HALF_ADVANCED_POSITION);
 	#ifdef DEBUG
 		Serial.println("going to half adv now");
 	#endif
 }
 
 void FeederClass::gotoFullAdvancedPosition() {
-	this->servo.write(this->feederSettings.full_advanced_angle);
-	this->feederPosition=sAT_FULL_ADVANCED_POSITION;
-	this->feederState=sMOVING;
+	this->startMove(this->feederSettings.full_advanced_angle,sAT_FULL_ADVANCED_POSITION);
 	#ifdef DEBUG
 		Serial.println("going to full adv now");
 	#endif
 }
 
+void FeederClass::gotoUnloadPosition() {
+	this->startMove(0,sAT_UNLOAD_POSITION);
+	#ifdef DEBUG
+		Serial.println("going to unload now");
+	#endif
+}
 
 void FeederClass::gotoAngle(uint8_t angle) {
 	
+	this->position = (uint16_t)angle << 8;
+	this->targetPosition = this->position;
 	this->servo.write(angle);
 	
 	#ifdef DEBUG
@@ -218,10 +225,101 @@ bool FeederClass::advance(uint8_t feedLength, bool overrideError = false) {
 			Serial.println(feedLength);
 		#endif
 		this->remainingFeedLength=feedLength;
+		this->advanceNext();
 	}
 
 	//return true: advance started okay
 	return true;
+}
+
+void FeederClass::advanceNext() {
+	#ifdef DEBUG
+		Serial.print("remainingFeedLength before working: ");
+		Serial.println(this->remainingFeedLength);
+	#endif
+	switch (this->feederPosition) {
+		/* ------------------------------------- UNLOAD AND RETRACT POS ---------------------- */
+		case sAT_UNLOAD_POSITION:
+		case sAT_RETRACT_POSITION: {
+			if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH) {
+				//goto full advance-pos
+				this->gotoFullAdvancedPosition();
+				this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH;
+			} else if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH/2) {
+				//goto half advance-pos
+				this->gotoHalfAdvancedPosition();
+				this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH/2;
+			}
+
+		}
+		break;
+
+		/* ------------------------------------- HALF-ADVANCED POS ---------------------- */
+		case sAT_HALF_ADVANCED_POSITION: {
+			if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH/2) {
+				//goto full advance-pos
+				this->gotoFullAdvancedPosition();
+				this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH/2;
+			}
+		}
+		break;
+
+		/* ------------------------------------- FULL-ADVANCED POS ---------------------- */
+		case sAT_FULL_ADVANCED_POSITION: {
+	// if coming here and remainingFeedLength==0, then the function is aborted above already, thus no retract after pick
+	// if coming here and remainingFeedLength >0, then the feeder goes to retract for next advance move
+			this->gotoRetractPosition();
+		}
+		break;
+
+		default: {
+			//state not relevant for advancing...
+			//return error, should not occur?
+		}
+		break;
+	}
+
+	#ifdef DEBUG
+		Serial.print("remainingFeedLength after working: ");
+		Serial.println(this->remainingFeedLength);
+	#endif
+	//just finished advancing? set flag to send ok in next run after settle-time to let the pnp go on
+	if(this->remainingFeedLength==0) {
+		this->advanceInProgress = true;
+	}
+}
+
+void FeederClass::startMove(uint8_t angle, sFeederPosition pos) {
+	this->targetPosition = (uint16_t)angle << 8;
+	this->feederPosition = pos;
+	this->feederState = sMOVING;
+	this->lastTimePositionChange = millis();
+	this->moveServoToTarget(1);
+}
+
+bool FeederClass::moveServoToTarget(uint8_t ms) {
+	uint8_t posOld = this->position >> 8;
+	if (posOld == 0)	// Force move at angle=0
+		posOld = 255;
+	while (ms--) {
+		if (this->position < this->targetPosition) {
+			uint16_t delta = this->targetPosition - this->position;
+			if ((this->feederSettings.advance_angle_speed > 0) && (delta > this->feederSettings.advance_angle_speed))
+				delta=this->feederSettings.advance_angle_speed;
+			this->position += delta;
+		} else if (this->position > this->targetPosition) {
+			uint16_t delta = this->position - this->targetPosition;
+			if ((this->feederSettings.retract_angle_speed > 0) && (delta > this->feederSettings.retract_angle_speed))
+				delta=this->feederSettings.retract_angle_speed;
+			this->position -= delta;
+		} else {
+			break;
+		}
+	}
+	uint8_t posNow = this->position >> 8;
+	if (posNow != posOld)
+		this->servo.write(posNow);
+	return this->position != this->targetPosition;
 }
 
 bool FeederClass::feederIsOk() {
@@ -285,7 +383,7 @@ String FeederClass::reportFeederErrorState() {
 void FeederClass::enable() {
 	
 	this->feederState=sIDLE;
-	
+	this->advanceInProgress = false;
 }
 
 //called when M-Code to disable feeder is issued
@@ -354,99 +452,46 @@ void FeederClass::update() {
 				}
 			}
 		}
+		return;
 	} else {
 		//permanently reset vars to don't do anything if not idle...
 		this->lastButtonState = digitalRead(feederFeedbackPinMap[this->feederNo]);	//read level of feedbackline (active low)
 		feedbackLineTickCounter=0;
 	}
-
+#else
+	if (this->feederState==sIDLE)
+		return;
 #endif
   
-	//state machine-update-stuff (for settle time)
-	if(this->lastFeederPosition!=this->feederPosition) {
-		this->lastTimePositionChange=millis();
-		this->lastFeederPosition=this->feederPosition;
+	if (this->feederState==sMOVING) {	// Move in progress
+		uint8_t dt = millis() - this->lastTimePositionChange;
+		if (dt == 0)
+			return;
+		this->lastTimePositionChange += dt;
+		if (this->moveServoToTarget(dt))
+			return;
+		this->feederState=sSETTLE;
 	}
 
 	//time to change the position?
 	if (millis() - this->lastTimePositionChange >= (unsigned long)this->feederSettings.time_to_settle) {
 
 		//now servo is expected to have settled at its designated position, so do some stuff
-		if(this->feederState==sADVANCING_CYCLE_COMPLETED) {
+		if(this->advanceInProgress) {
+			this->advanceInProgress = false;
 			Serial.println("ok, advancing cycle completed");
-			this->feederState=sIDLE;
 		}
 
 		//if no need for feeding exit fast.
 		if(this->remainingFeedLength==0) {
-			
 			if(this->feederState!=sDISABLED)
 				//if feeder are not disabled:
 				//make sure sIDLE is entered always again (needed if gotoXXXPosition functions are called directly instead by advance() which would set a remainingFeedLength)
 				this->feederState=sIDLE;
 				
 			return;
-		} else {
-			this->feederState=sMOVING;
 		}
-		
-		#ifdef DEBUG
-			Serial.print("remainingFeedLength before working: ");
-			Serial.println(this->remainingFeedLength);
-		#endif
-		switch (this->feederPosition) {
-			/* ------------------------------------- RETRACT POS ---------------------- */
-			case sAT_RETRACT_POSITION: {
-				if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH) {
-					//goto full advance-pos
-					this->gotoFullAdvancedPosition();
-					this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH;
-				} else if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH/2) {
-					//goto half advance-pos
-					this->gotoHalfAdvancedPosition();
-					this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH/2;
-				}
-
-			}
-			break;
-
-			/* ------------------------------------- HALF-ADVANCED POS ---------------------- */
-			case sAT_HALF_ADVANCED_POSITION: {
-				if(this->remainingFeedLength>=FEEDER_MECHANICAL_ADVANCE_LENGTH/2) {
-					//goto full advance-pos
-					this->gotoFullAdvancedPosition();
-					this->remainingFeedLength-=FEEDER_MECHANICAL_ADVANCE_LENGTH/2;
-				}
-			}
-			break;
-
-			/* ------------------------------------- FULL-ADVANCED POS ---------------------- */
-			case sAT_FULL_ADVANCED_POSITION: {
-        // if coming here and remainingFeedLength==0, then the function is aborted above already, thus no retract after pick
-        // if coming here and remainingFeedLength >0, then the feeder goes to retract for next advance move
-				this->gotoRetractPosition();
-			}
-			break;
-
-			default: {
-				//state not relevant for advancing...
-				//return error, should not occur?
-			}
-			break;
-		}
-
-		#ifdef DEBUG
-			Serial.print("remainingFeedLength after working: ");
-			Serial.println(this->remainingFeedLength);
-		#endif
-
-		//just finished advancing? set flag to send ok in next run after settle-time to let the pnp go on
-		if(this->remainingFeedLength==0) {
-			this->feederState=sADVANCING_CYCLE_COMPLETED;
-		}
+		this->feederState=sMOVING;
+		this->advanceNext();
 	}
-
-
-
-	return;
 }
