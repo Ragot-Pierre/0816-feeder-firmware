@@ -52,12 +52,14 @@ void FeederClass::outputCurrentSettings() {
 	Serial.println();
 }
 
-void FeederClass::setup() {
+void FeederClass::setup(PCA9685 *controller) {
 	//load settings from eeprom
 	this->loadFeederSettings();
 
 	//attach servo to pin, after settings are loaded
-	this->servo.attach(feederPinMap[this->feederNo],this->feederSettings.motor_min_pulsewidth,this->feederSettings.motor_max_pulsewidth);
+	// this->servo.attach(feederPinMap[this->feederNo],this->feederSettings.motor_min_pulsewidth,this->feederSettings.motor_max_pulsewidth);
+	this->servoController = controller;
+	this->servoController->setPWMFreqServo();
 
 	//feedback input
 	//microswitch is active low (NO connected to feedback-pin)
@@ -161,7 +163,8 @@ void FeederClass::gotoAngle(uint8_t angle) {
 	
 	this->position = (uint16_t)angle << 8;
 	this->targetPosition = this->position;
-	this->servo.write(angle);
+	// this->servo.write(angle);
+	this->servoController->setChannelPWM(this->feederNo, map(angle, 0, 180, 0, 4096));
 	
 	#ifdef DEBUG
 		Serial.print("going to ");
@@ -315,10 +318,12 @@ bool FeederClass::moveServoToTarget(uint8_t ms) {
 		} else {
 			break;
 		}
+		delay(1);
 	}
 	uint8_t posNow = this->position >> 8;
 	if (posNow != posOld)
-		this->servo.write(posNow);
+		// this->servo.write(posNow);
+		this->servoController->setChannelPWM(this->feederNo, map(posNow, 0, 180, 0, 4096));
 	return this->position != this->targetPosition;
 }
 

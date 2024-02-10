@@ -14,7 +14,7 @@
 *  Select controller shield
 */
 // defaults to the native shield, optional sensor shield can be selected
-#define CONTROLLER_SHIELD SHIELD_NATIVE     //SHIELD_NATIVE or SHIELD_SENSOR
+#define CONTROLLER_SHIELD SHIELD_I2C     //SHIELD_NATIVE or SHIELD_SENSOR
 //change config_version, if change shield!
 
 
@@ -22,7 +22,7 @@
 *  EEPROM-Settings
 */
 //change to something other unique if structure of data to be saved in eeprom changed (max 3 chars)
-#define CONFIG_VERSION "dab"
+#define CONFIG_VERSION "kkk"
 
 /*
 *  Serial

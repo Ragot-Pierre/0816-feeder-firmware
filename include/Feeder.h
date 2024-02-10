@@ -4,7 +4,8 @@
 #include "arduino.h"
 #include "config.h"
 #include "shield.h"
-#include <Servo.h>
+// #include <Servo.h>
+#include <PCA9685.h>
 #include <EEPROMex.h>
 
 
@@ -91,13 +92,13 @@ class FeederClass {
 #endif
 	};
 
-	Servo servo;
+	PCA9685 *servoController;
 
 	void initialize(uint8_t _feederNo);
 	bool isInitialized();
 	bool hasFeedbackLine();
 	void outputCurrentSettings();
-	void setup();
+	void setup(PCA9685 *controller);
 	sFeederSettings getSettings();
 	void setSettings(sFeederSettings UpdatedFeederSettings);
 	void loadFeederSettings();
