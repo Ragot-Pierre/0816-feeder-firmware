@@ -4,7 +4,7 @@
 #include "arduino.h"
 #include "config.h"
 #include "shield.h"
-// #include <Servo.h>
+
 #include <PCA9685.h>
 #include <EEPROMex.h>
 
@@ -39,9 +39,7 @@ class FeederClass {
 		uint16_t retract_angle_speed;					// degree per ms in 1/256 degree resolution, 0 disable
 		int motor_min_pulsewidth;
 		int motor_max_pulsewidth;
-#ifdef HAS_FEEDBACKLINES  
-		uint8_t ignore_feedback;
-#endif
+
 		//sFeederState lastFeederState;       //save last position to stay there on poweron? needs something not to wear out the eeprom. until now just go to retract pos.
 	};
 
@@ -87,14 +85,11 @@ class FeederClass {
 		FEEDER_DEFAULT_RETRACT_ANGLE_SPEED,
 		FEEDER_DEFAULT_MOTOR_MIN_PULSEWIDTH,
 		FEEDER_DEFAULT_MOTOR_MAX_PULSEWITH,
-#ifdef HAS_FEEDBACKLINES
-		FEEDER_DEFAULT_IGNORE_FEEDBACK,
-#endif
 	};
 
 	PCA9685 *servoController;
 
-	void initialize(uint8_t _feederNo);
+	void initialize(uint16_t _feederNo);
 	bool isInitialized();
 	bool hasFeedbackLine();
 	void outputCurrentSettings();

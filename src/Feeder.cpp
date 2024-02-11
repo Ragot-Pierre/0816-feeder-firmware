@@ -8,7 +8,7 @@ bool FeederClass::isInitialized() {
 		return true;
 }
 
-void FeederClass::initialize(uint8_t _feederNo) {
+void FeederClass::initialize(uint16_t _feederNo) {
 	this->feederNo = _feederNo;
 }
 
@@ -45,30 +45,17 @@ void FeederClass::outputCurrentSettings() {
 	Serial.print(this->feederSettings.motor_min_pulsewidth);
 	Serial.print(" W");
 	Serial.print(this->feederSettings.motor_max_pulsewidth);
-#ifdef HAS_FEEDBACKLINES
-	Serial.print(" X");
-	Serial.print(this->feederSettings.ignore_feedback);
-#endif
 	Serial.println();
 }
 
-void FeederClass::setup(PCA9685 *controller) {
+void FeederClass::setup(PCA9685 *controllerList) {
 	//load settings from eeprom
 	this->loadFeederSettings();
 
 	//attach servo to pin, after settings are loaded
-	// this->servo.attach(feederPinMap[this->feederNo],this->feederSettings.motor_min_pulsewidth,this->feederSettings.motor_max_pulsewidth);
-	this->servoController = controller;
-	this->servoController->setPWMFreqServo();
+	Serial.println("Feeder " + String(this->feederNo) + " assigned to controller " + String((uint8_t) trunc((double) this->feederNo / 16.0)));
 
-	//feedback input
-	//microswitch is active low (NO connected to feedback-pin)
-#ifdef HAS_FEEDBACKLINES
-	if(this->hasFeedbackLine())
-		pinMode((uint8_t)feederFeedbackPinMap[this->feederNo],INPUT_PULLUP);
-
-	this->lastButtonState=digitalRead(feederFeedbackPinMap[this->feederNo]);
-#endif
+	this->servoController = &controllerList[(uint8_t) trunc((double) this->feederNo / 16.0)];
 
 	//put on defined position
 	this->gotoRetractPosition();
@@ -163,8 +150,10 @@ void FeederClass::gotoAngle(uint8_t angle) {
 	
 	this->position = (uint16_t)angle << 8;
 	this->targetPosition = this->position;
-	// this->servo.write(angle);
-	this->servoController->setChannelPWM(this->feederNo, map(angle, 0, 180, 0, 4096));
+	#ifdef DEBUG
+	Serial.println("Moving feeder " + String(this->feederNo) + " to angle " + String(angle));	
+	#endif // DEBUG
+	this->servoController->setChannelPWM(this->feederNo, map(angle, 0, 180, this->feederSettings.motor_min_pulsewidth, this->feederSettings.motor_max_pulsewidth));
 	
 	#ifdef DEBUG
 		Serial.print("going to ");
@@ -318,12 +307,14 @@ bool FeederClass::moveServoToTarget(uint8_t ms) {
 		} else {
 			break;
 		}
-		delay(1);
 	}
 	uint8_t posNow = this->position >> 8;
 	if (posNow != posOld)
-		// this->servo.write(posNow);
-		this->servoController->setChannelPWM(this->feederNo, map(posNow, 0, 180, 0, 4096));
+	#ifdef DEBUG
+		Serial.println("Moving feeder " + String(this->feederNo) + " to position " + String(posNow));
+	#endif // DEBUG
+		this->servoController->setChannelPWM(this->feederNo, map(posNow, 0, 180, this->feederSettings.motor_min_pulsewidth, this->feederSettings.motor_max_pulsewidth));
+		// delay(1);
 	return this->position != this->targetPosition;
 }
 
@@ -389,12 +380,17 @@ void FeederClass::enable() {
 	
 	this->feederState=sIDLE;
 	this->advanceInProgress = false;
+	
+	this->servoController->setChannelOn(this->feederNo % 16);
+	this->servoController->setChannelPWM(this->feederNo % 16, 310);
 }
 
 //called when M-Code to disable feeder is issued
 void FeederClass::disable() {
   
-  this->feederState=sDISABLED;
+	this->feederState=sDISABLED;
+	
+	this->servoController->setChannelOff(this->feederNo % 16);
 }
 
 void FeederClass::update() {

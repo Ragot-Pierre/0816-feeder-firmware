@@ -1,16 +1,8 @@
 #ifndef _SHIELD_h
 #define _SHIELD_h
-#include "shields_def.h"
 
-#if SHIELD(NATIVE)
-  #include "shield_native.h"
-#elif SHIELD(SENSOR)
-  #include "shield_sensor.h"
-#elif SHIELD(I2C)
-  #include "shield_i2c.h"
-#else
-  #error "invalid board, please select a proper shield"
-#endif
+#define NUMBER_OF_FEEDER 32
+#define NUMBER_OF_CONTROLLERS ((uint8_t) ceil((double) NUMBER_OF_FEEDER / 16.0))
 
 //DEFINE _SHIELD_h-ENDIF!!!
 #endif

@@ -8,13 +8,12 @@
 */
 // prints some extra information via serial
 // uncomment to disable in production
-//#define DEBUG
+// #define DEBUG
 
 /*
 *  Select controller shield
 */
-// defaults to the native shield, optional sensor shield can be selected
-#define CONTROLLER_SHIELD SHIELD_I2C     //SHIELD_NATIVE or SHIELD_SENSOR
+#define CONTROLLER_SHIELD SHIELD_I2C
 //change config_version, if change shield!
 
 
@@ -22,7 +21,7 @@
 *  EEPROM-Settings
 */
 //change to something other unique if structure of data to be saved in eeprom changed (max 3 chars)
-#define CONFIG_VERSION "kkk"
+#define CONFIG_VERSION "zsz"
 
 /*
 *  Serial
@@ -102,13 +101,13 @@
 	|    0			<- servo-motor at FEEDER_DEFAULT_FULL_ADVANCED_ANGLE (about 90°)
 
 */
-#define FEEDER_DEFAULT_FULL_ADVANCED_ANGLE  90				      // [°]  usually 90 (type: uint8_t)
-#define FEEDER_DEFAULT_HALF_ADVANCED_ANGLE  44              // [°]  exact math would be 43.85. may need tweaking. only needed if advancing half pitch (for 0401 smds) (type: uint8_t)
-#define FEEDER_DEFAULT_RETRACT_ANGLE  15				      // [°]  usually 20, chose 15 to be failsafe (type: uint8_t)
+#define FEEDER_DEFAULT_FULL_ADVANCED_ANGLE  180				      // [°]  usually 90 (type: uint8_t)
+#define FEEDER_DEFAULT_HALF_ADVANCED_ANGLE  135              // [°]  exact math would be 43.85. may need tweaking. only needed if advancing half pitch (for 0401 smds) (type: uint8_t)
+#define FEEDER_DEFAULT_RETRACT_ANGLE  60				      // [°]  usually 20, chose 15 to be failsafe (type: uint8_t)
 #define FEEDER_DEFAULT_FEED_LENGTH FEEDER_MECHANICAL_ADVANCE_LENGTH			// [mm] distance to be fed if no feedlength was given in a feed command
-#define FEEDER_DEFAULT_TIME_TO_SETTLE  240			  // [ms] time the servo needs to travel from FEEDER_DEFAULT_FULL_ADVANCED_ANGLE to FEEDER_DEFAULT_RETRACT_ANGLE (type: uint8_t -> max 255ms)
-#define FEEDER_DEFAULT_ADVANCE_ANGLE_SPEED 0		// max speed
-#define FEEDER_DEFAULT_RETRACT_ANGLE_SPEED 0		// max speed
+#define FEEDER_DEFAULT_TIME_TO_SETTLE  30			  // [ms] time the servo needs to travel from FEEDER_DEFAULT_FULL_ADVANCED_ANGLE to FEEDER_DEFAULT_RETRACT_ANGLE (type: uint8_t -> max 255ms)
+#define FEEDER_DEFAULT_ADVANCE_ANGLE_SPEED 64		// max speed
+#define FEEDER_DEFAULT_RETRACT_ANGLE_SPEED 128		// max speed
 /* Added 40 degrees for all angles for "0816 Feeder Redesigned */
 #define FEEDER_DEFAULT_RD_FULL_ADVANCED_ANGLE  130		// [°]  usually 130 (type: uint8_t)
 #define FEEDER_DEFAULT_RD_HALF_ADVANCED_ANGLE  84		// [°]  exact math would be 83.85. may need tweaking. only needed if advancing half pitch (for 0401 smds) (type: uint8_t)
@@ -119,72 +118,25 @@
    180° == ~2400 µs --> max, default 2400 and seems it fits to the sg90 from tower pro
 	 --> SERVO.attach(PIN, 544, 2400);
 */
-#define FEEDER_DEFAULT_MOTOR_MIN_PULSEWIDTH 544		// [µs] see motor specs or experiment at bit. Value set here should bring the servo to 0°
-#define FEEDER_DEFAULT_MOTOR_MAX_PULSEWITH 2400		// [µs] see motor specs or experiment at bit. Value set here should bring the servo to 180°
-#define FEEDER_DEFAULT_IGNORE_FEEDBACK 0			// 0: before feeding the feedback-signal is checked. if signal is as expected, the feeder advances tape and returns OK to host. otherwise an error is thrown.
+#define FEEDER_DEFAULT_MOTOR_MIN_PULSEWIDTH 100		// [µs] see motor specs or experiment at bit. Value set here should bring the servo to 0°
+#define FEEDER_DEFAULT_MOTOR_MAX_PULSEWITH 600		// [µs] see motor specs or experiment at bit. Value set here should bring the servo to 180°
+#define FEEDER_DEFAULT_IGNORE_FEEDBACK 1			// 0: before feeding the feedback-signal is checked. if signal is as expected, the feeder advances tape and returns OK to host. otherwise an error is thrown.
 													// 1: the feedback-signal is not checked, feeder advances tape and returns OK always
-
-
-/* ----------------
-  Analog Reading Config
-*/
-// ADC is polled regularly and scaled afterwards. When a command is issued, the pre-calculated values are sent to host immediately.
-#define ADC_READ_EVERY_MS 20
-
-// Scaling Factors to convert raw ADC value to real units.
-#define ANALOG_A0_SCALING_FACTOR 0.1277			//preset for NXP vacuum sensor, formula pressure [kPa]=(ADCval/1023-0.92)/0.007652
-#define ANALOG_A0_OFFSET -120.23
-#define ANALOG_A1_SCALING_FACTOR 0.1277			//preset for NXP vacuum sensor, formula pressure [kPa]=(ADCval/1023-0.92)/0.007652
-#define ANALOG_A1_OFFSET -120.23
-#define ANALOG_A2_SCALING_FACTOR 1
-#define ANALOG_A2_OFFSET 0
-#define ANALOG_A3_SCALING_FACTOR 1
-#define ANALOG_A3_OFFSET 0
-#define ANALOG_A4_SCALING_FACTOR 1
-#define ANALOG_A4_OFFSET 0
-#define ANALOG_A5_SCALING_FACTOR 1
-#define ANALOG_A5_OFFSET 0
-#define ANALOG_A6_SCALING_FACTOR 1
-#define ANALOG_A6_OFFSET 0
-#define ANALOG_A7_SCALING_FACTOR 1
-#define ANALOG_A7_OFFSET 0
-
-
-
-
 
 
 
 // ------------------------------------------------------
-//
-//
-//
-//
-//
-//
 //
 // STOP
 // do not edit stuff below this line...
 //
-//
-//
-//
-//
-//
-//
-//
 // ------------------------------------------------------
 
 
-
-
 //where in eeprom to store common settings and feeder specific data
-#define EEPROM_COMMON_SETTINGS_ADDRESS_OFFSET 4
-#if CONTROLLER_SHIELD == NATIVE_SHIELD
-  #define EEPROM_FEEDER_SETTINGS_ADDRESS_OFFSET 128
-#else
-  #define EEPROM_FEEDER_SETTINGS_ADDRESS_OFFSET 8
-#endif
+#define EEPROM_COMMON_SETTINGS_ADDRESS_OFFSET 8
+
+#define EEPROM_FEEDER_SETTINGS_ADDRESS_OFFSET 16
 
 //buffer size for serial commands received
 #define MAX_BUFFFER_MCODE_LINE 64	// no line can be longer than this
